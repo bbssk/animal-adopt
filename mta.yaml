@@ -20,6 +20,8 @@ modules:
       buildpack: nodejs_buildpack
     build-parameters:
       builder: npm-ci
+      ignore:
+        - "node_modules/" # to reduce file size
     provides:
       - name: srv-api # required by consumers of CAP services (e.g. approuter)
         properties:

@@ -15,5 +15,39 @@
   },
   "scripts": {
     "start": "cds-serve"
-  }
+  },
+  "cds": {
+    "requires": {
+      "[development]": {
+        "auth": {
+          "kind": "mocked",
+          "users": {
+            "user1": {
+              "attr": {
+                "name": "Ramesh Sharma"
+              },
+              "roles": [
+                "Adopter"
+              ]
+            },
+            "user2": {
+              "roles": [
+                "Adopter"
+              ]
+            },
+            "user3": {
+              "roles": [
+                "Admin"
+              ],
+              "password": "initial"
+            }
+          }
+        }
+      }
+    }
+  },
+  "sapux": [
+    "app/adopter",
+    "app/adopter"
+  ]
 }

@@ -1,0 +1,154 @@
+_schema-version: 3.3.0
+ID: animal-adopt
+version: 1.0.0
+description: "A simple CAP project."
+parameters:
+  enable-parallel-deployments: true
+  deploy_mode: html5-repo
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npx cds build --production
+modules:
+  - name: animal-adopt-srv
+    type: nodejs
+    path: gen/srv
+    parameters:
+      instances: 1
+      buildpack: nodejs_buildpack
+    build-parameters:
+      builder: npm-ci
+    provides:
+      - name: srv-api # required by consumers of CAP services (e.g. approuter)
+        properties:
+          srv-url: ${default-url}
+    requires:
+      - name: animal-adopt-destination
+      - name: animal-adopt-db
+      - name: animal-adopt-auth
+
+  - name: animal-adopt-db-deployer
+    type: hdb
+    path: gen/db
+    parameters:
+      buildpack: nodejs_buildpack
+    requires:
+      - name: animal-adopt-db
+
+  - name: animal-adopt-app-deployer
+    type: com.sap.application.content
+    path: gen
+    requires:
+      - name: animal-adopt-html5-repo-host
+        parameters:
+          content-target: true
+    build-parameters:
+      build-result: app/
+      requires:
+        - name: animaladoptadopter
+          artifacts:
+            - adopter.zip
+          target-path: app/
+
+  - name: animaladoptadopter
+    type: html5
+    path: app/adopter
+    build-parameters:
+      build-result: dist
+      builder: custom
+      commands:
+        - npm ci
+        - npm run build
+      supported-platforms:
+        []
+
+  - name: animal-adopt-destinations
+    type: com.sap.application.content
+    requires:
+      - name: animal-adopt-auth
+        parameters:
+          service-key:
+            name: animal-adopt-auth-key
+      - name: animal-adopt-html5-repo-host
+        parameters:
+          service-key:
+            name: animal-adopt-html5-repo-host-key
+      - name: srv-api
+      - name: animal-adopt-destination
+        parameters:
+          content-target: true
+    build-parameters:
+      no-source: true
+    parameters:
+      content:
+        instance:
+          existing_destinations_policy: update
+          destinations:
+            - Name: animal-adopt-html5-repository
+              ServiceInstanceName: animal-adopt-html5-repo-host
+              ServiceKeyName: animal-adopt-html5-repo-host-key
+              sap.cloud.service: animaladopt.service
+            - Name: animal-adopt-auth
+              Authentication: OAuth2UserTokenExchange
+              ServiceInstanceName: animal-adopt-auth
+              ServiceKeyName: animal-adopt-auth-key
+              sap.cloud.service: animaladopt.service
+
+resources:
+  - name: animal-adopt-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+      config:
+        HTML5Runtime_enabled: true
+        init_data:
+          instance:
+            existing_destinations_policy: update
+            destinations:
+              - Name: srv-api
+                URL: ~{srv-api/srv-url}
+                Authentication: NoAuthentication
+                Type: HTTP
+                ProxyType: Internet
+                HTML5.ForwardAuthToken: true
+                HTML5.DynamicDestination: true
+              - Name: ui5
+                URL: https://ui5.sap.com
+                Authentication: NoAuthentication
+                Type: HTTP
+                ProxyType: Internet
+    requires:
+      - name: srv-api
+        group: destinations
+        properties:
+          name: srv-api # must be used in xs-app.json as well
+          url: ~{srv-url}
+          forwardAuthToken: true
+  - name: animal-adopt-db
+    type: com.sap.xs.hdi-container
+    parameters:
+      service: hana
+      service-plan: hdi-shared
+
+  - name: animal-adopt-html5-repo-host
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-host
+  - name: animal-adopt-html5-runtime
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-runtime
+  - name: animal-adopt-auth
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+      config:
+        xsappname: animal-adopt-${org}-${space}
+        tenant-mode: dedicated

@@ -17,7 +17,9 @@
     "@sap/cds-dk": "^8"
   },
   "scripts": {
-    "start": "cds-serve"
+    "start": "cds-serve",
+    "build": "npx rimraf resources mta_archives && mbt build --mtar archive",
+    "deploy": "cf deploy mta_archives/archive.mtar --retries 1"
   },
   "cds": {
     "requires": {
@@ -53,6 +55,7 @@
       },
       "destinations": true,
       "html5-runtime": true,
+      "html5-repo": true,
       "workzone": true
     },
     "sql": {
